@@ -188,7 +188,7 @@
                                 </span>
                                 {% if parcel.collection_status == 'Pending Confirmation' %}
                                     <form method="POST" action="{{ url_for('confirm_collection', parcel_id=parcel.id) }}" style="margin-top: 8px;">
-                                        <button type="submit" class="btn btn-success btn-sm">Collected</button>
+                                        <button type="submit" class="btn btn-success btn-sm">Confirm Collection</button>
                                     </form>
                                 {% endif %}
                             </td>

@@ -39,6 +39,7 @@ def create_tables():
             quantity INTEGER,
             payment_status TEXT DEFAULT 'Unpaid',
             collection_status TEXT DEFAULT 'Not Collected',
+            collection_date TEXT,
             qr_code TEXT,
             FOREIGN KEY (student_username) REFERENCES students(username)
         )
