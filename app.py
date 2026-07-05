@@ -1,5 +1,6 @@
 import os
-import sqlite3
+import psycopg2
+from psycopg2.extras import RealDictCursor
 from flask import Flask, jsonify, render_template, request, redirect, url_for, session, flash
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -22,7 +23,7 @@ for folder in [UPLOAD_FOLDER, QR_FOLDER]:
     os.makedirs(folder, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-DATABASE = 'database.db'
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 SENDER_EMAIL = os.getenv("SENDER_EMAIL")
 SENDER_PASSWORD = os.getenv("SENDER_PASSWORD")
@@ -33,9 +34,10 @@ def allowed_file(filename):
 
 
 def get_db_connection():
-    conn = sqlite3.connect(DATABASE, timeout=30)
-    conn.row_factory = sqlite3.Row
-    return conn
+    return psycopg2.connect(
+        DATABASE_URL,
+        cursor_factory=RealDictCursor
+    )
 
 
 def send_qr_email(student_email, student_username, tracking_number, qr_path):
@@ -165,12 +167,12 @@ def init_db():
 
     c.execute('''
         CREATE TABLE IF NOT EXISTS parcels (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY AUTOINCREMENT,
             student_username TEXT,
             tracking_number TEXT,
             courier TEXT,
             arrival_date TEXT,
-            quantity INTEGER,
+            quantity SERIAL,
             payment_status TEXT DEFAULT 'Unpaid',
             collection_status TEXT DEFAULT 'Not Collected',
             qr_code TEXT,
@@ -180,41 +182,41 @@ def init_db():
 
     c.execute('''
         CREATE TABLE IF NOT EXISTS staff (
-            staff_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            staff_id SERIAL PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE,
             password TEXT
         )
     ''')
 
     # Reset admin account
-    c.execute("DELETE FROM staff WHERE username = ?", ("admin",))
+    c.execute("DELETE FROM staff WHERE username = %s", ("admin",))
 
     c.execute("""
               INSERT INTO STAFF (username, password)
-              VALUES (?, ?)
+              VALUES (%s, %s)
     """, ("admin", generate_password_hash("admin123")))
 
     c.execute('''
         CREATE TABLE IF NOT EXISTS notices (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL,
             message TEXT NOT NULL,
             type TEXT NOT NULL,
             recipient TEXT DEFAULT 'all',
-            is_read INTEGER DEFAULT 0,
+            is_read SERIAL DEFAULT 0,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     ''')
 
     c.execute('''
         CREATE TABLE IF NOT EXISTS chat_messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY AUTOINCREMENT,
             sender_username TEXT,
             receiver_username TEXT,
             message TEXT,
             answer TEXT,
             status TEXT DEFAULT 'Pending',
-            is_read INTEGER DEFAULT 0,
+            is_read SERIAL DEFAULT 0,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             answered_at TEXT
         )
@@ -222,32 +224,32 @@ def init_db():
 
     try:
         c.execute("ALTER TABLE parcels ADD COLUMN collection_date TEXT")
-    except sqlite3.OperationalError:
+    except Exception:
         pass
 
     try:
         c.execute("ALTER TABLE parcels ADD COLUMN qr_code TEXT")
-    except sqlite3.OperationalError:
+    except Exception:
         pass
 
     try:
         c.execute("ALTER TABLE chat_messages ADD COLUMN answer TEXT")
-    except sqlite3.OperationalError:
+    except Exception:
         pass
 
     try:
         c.execute("ALTER TABLE chat_messages ADD COLUMN status TEXT DEFAULT 'Pending'")
-    except sqlite3.OperationalError:
+    except Exception:
         pass
 
     try:
         c.execute("ALTER TABLE chat_messages ADD COLUMN answered_at TEXT")
-    except sqlite3.OperationalError:
+    except Exception:
         pass
 
     c.execute("""
         INSERT OR IGNORE INTO staff (username, password)
-        VALUES (?, ?)
+        VALUES (%s, %s)
     """, ("admin", generate_password_hash("admin123")))
 
     conn.commit()
@@ -275,14 +277,14 @@ def register():
             conn.execute("""
                 INSERT INTO students
                 (username, student_id, full_name, email, phone, password)
-                VALUES (?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s)
             """, (username, student_id, full_name, email, phone, password))
 
             conn.commit()
             flash("Student registered! Please login.")
             return redirect(url_for('login'))
 
-        except sqlite3.IntegrityError:
+        except psycopg2.IntegrityError:
             flash("Username or ID already exists!")
 
         finally:
@@ -300,7 +302,7 @@ def login():
         conn = get_db_connection()
         student = conn.execute("""
             SELECT * FROM students
-            WHERE username=? AND password=?
+            WHERE username=%s AND password=%s
         """, (username, password)).fetchone()
         conn.close()
 
@@ -322,16 +324,16 @@ def dashboard(username):
         UPDATE parcels
         SET collection_status = 'Collected'
         WHERE collection_status = 'Pending Confirmation'
-        AND DATETIME(collection_date, '+3 days') <= DATETIME('now')
+        AND collection_date + INTERVAL '3 days' <= CURRENT_TIMESTAMP
     """)
     conn.commit()
 
-    cursor.execute("SELECT * FROM students WHERE username = ?", (username,))
+    cursor.execute("SELECT * FROM students WHERE username = %s", (username,))
     user = cursor.fetchone()
 
     cursor.execute("""
         SELECT * FROM parcels
-        WHERE student_username = ?
+        WHERE student_username = %s
         ORDER BY id DESC
     """, (username,))
     parcels = cursor.fetchall()
@@ -366,8 +368,8 @@ def upload_profile(username):
         conn = get_db_connection()
         conn.execute("""
             UPDATE students
-            SET profile_pic_path=?
-            WHERE username=?
+            SET profile_pic_path=%s
+            WHERE username=%s
         """, (saved_path, username))
         conn.commit()
         conn.close()
@@ -388,7 +390,7 @@ def pay_selected(username):
     qr_files = []
 
     for parcel_id in selected_ids:
-        parcel = c.execute("SELECT * FROM parcels WHERE id=?", (parcel_id,)).fetchone()
+        parcel = c.execute("SELECT * FROM parcels WHERE id=%s", (parcel_id,)).fetchone()
 
         if not parcel:
             continue
@@ -406,13 +408,13 @@ def pay_selected(username):
         c.execute("""
             UPDATE parcels
             SET payment_status='Paid',
-                qr_code=?,
+                qr_code=%s,
                 collection_status='Not Collected'
-            WHERE id=?
+            WHERE id=%s
         """, (qr_filename, parcel_id))
 
         student = conn.execute(
-            "SELECT email FROM students WHERE username=?",
+            "SELECT email FROM students WHERE username=%s",
             (username,)
         ).fetchone()
 
@@ -441,7 +443,7 @@ def staff_login():
 
         conn = get_db_connection()
         staff = conn.execute(
-            "SELECT * FROM staff WHERE username=?",
+            "SELECT * FROM staff WHERE username=%s",
             (username,)
         ).fetchone()
         conn.close()
@@ -508,19 +510,19 @@ def staff_checkin():
         conn = get_db_connection()
 
         student = conn.execute(
-            "SELECT email FROM students WHERE username=?",
+            "SELECT email FROM students WHERE username=%s",
             (student_username,)
         ).fetchone()
 
         conn.execute("""
             INSERT INTO parcels
             (student_username, tracking_number, courier, arrival_date, quantity, payment_status, collection_status)
-            VALUES (?, ?, ?, DATE('now'), ?, 'Unpaid', 'Not Collected')
+            VALUES (%s, %s, %s,CURRENT_DATE, %s, 'Unpaid', 'Not Collected')
         """, (student_username, tracking_number, courier, quantity))
 
         conn.execute("""
             INSERT INTO notices (title, message, type, recipient)
-            VALUES (?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s)
         """, (
             "Parcel Arrived",
             f"Your parcel with tracking number {tracking_number} has arrived. Please make payment to generate QR code.",
@@ -558,7 +560,7 @@ def staff_qr_scan():
 
             parcel_info = conn.execute("""
                 SELECT * FROM parcels
-                WHERE id=?
+                WHERE id=%s
             """, (parcel_id,)).fetchone()
 
             if not parcel_info:
@@ -582,8 +584,8 @@ def release_parcel(parcel_id):
     conn.execute("""
         UPDATE parcels
         SET collection_status='Pending Confirmation',
-            collection_date = DATETIME('now')
-        WHERE id = ?
+            collection_date = CURRENT_DATE
+        WHERE id = %s
     """, (parcel_id,))
 
     conn.commit()
@@ -606,9 +608,9 @@ def confirm_collection(parcel_id):
     conn.execute("""
         UPDATE parcels
         SET collection_status='Collected',
-            collection_date = DATETIME('now')
-        WHERE id=?
-        AND student_username=?
+            collection_date = CURRENT_DATE
+        WHERE id=%s
+        AND student_username=%s
     """, (parcel_id, username))
 
     conn.commit()
@@ -630,7 +632,7 @@ def chatbot_ask():
     lower_message = message.lower()
     tracking_number = data.get('tracking_number') or ''
 
-    words = [word.strip('.,?!#') for word in message.split()]
+    words = [word.strip('.,%s!#') for word in message.split()]
     possible_tracking_numbers = [
         word for word in words
         if any(ch.isdigit() for ch in word) and len(word) >= 4
@@ -644,8 +646,8 @@ def chatbot_ask():
     if tracking_number:
         parcel = conn.execute("""
             SELECT * FROM parcels
-            WHERE tracking_number = ?
-            AND (? IS NULL OR student_username = ?)
+            WHERE tracking_number = %s
+            AND (%s IS NULL OR student_username = %s)
         """, (tracking_number, username, username)).fetchone()
         conn.close()
 
@@ -698,7 +700,7 @@ def chatbot_ask_staff():
     conn.execute("""
         INSERT INTO chat_messages
         (sender_username, receiver_username, message, status)
-        VALUES (?, ?, ?, 'Pending')
+        VALUES (%s, %s, %s, 'Pending')
     """, (username, 'staff', question))
 
     conn.commit()
@@ -719,7 +721,7 @@ def chatbot_my_questions():
     messages = conn.execute("""
         SELECT message, answer, status, created_at, answered_at
         FROM chat_messages
-        WHERE sender_username=?
+        WHERE sender_username=%s
         ORDER BY created_at DESC
         LIMIT 10
     """, (username,)).fetchall()
@@ -745,10 +747,10 @@ def staff_answer_chat(message_id):
 
     conn.execute("""
         UPDATE chat_messages
-        SET answer=?,
+        SET answer=%s,
             status='Answered',
             answered_at=CURRENT_TIMESTAMP
-        WHERE id=?
+        WHERE id=%s
     """, (answer, message_id))
 
     conn.commit()
@@ -766,7 +768,7 @@ def forgot_password():
         conn = get_db_connection()
 
         student = conn.execute(
-            "SELECT * FROM students WHERE email=?",
+            "SELECT * FROM students WHERE email=%s",
             (email,)
         ).fetchone()
 
@@ -829,8 +831,8 @@ def reset_password():
 
         conn.execute("""
             UPDATE students
-            SET password=?
-            WHERE email=?
+            SET password=%s
+            WHERE email=%s
         """, (new_password, session['reset_email']))
 
         conn.commit()
@@ -850,7 +852,7 @@ def notices(username):
 
     all_notices = conn.execute("""
         SELECT * FROM notices
-        WHERE recipient = 'all' OR recipient = ?
+        WHERE recipient = 'all' OR recipient = %s
         ORDER BY created_at DESC
     """, (username,)).fetchall()
 
@@ -874,7 +876,7 @@ def add_notice():
 
     conn.execute("""
         INSERT INTO notices (title, message, type, recipient)
-        VALUES (?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s)
     """, (title, message, notice_type, recipient))
 
     conn.commit()
