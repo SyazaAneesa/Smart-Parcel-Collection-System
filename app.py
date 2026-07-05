@@ -36,7 +36,7 @@ def allowed_file(filename):
 def get_db_connection():
     return psycopg.connect(
         DATABASE_URL,
-        cursor_factory=dict_row
+        row_factory=dict_row
     )
 
 
