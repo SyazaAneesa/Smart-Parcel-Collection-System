@@ -186,15 +186,15 @@
                                     {% endif %}
 
                                 </span>
-                                {% if parcel.collection_status == 'Pending Confirmation' %}
-                                    <form method="POST" action="{{ url_for('confirm_collection', parcel_id=parcel.id) }}" style="margin-top: 8px;">
+                                {% if parcel['collection_status'] == 'Pending Confirmation' %}
+                                    <form method="POST" action="{{ url_for('confirm_collection', parcel_id=parcel['id']) }}">
                                         <button type="submit" class="btn btn-success btn-sm">Confirm Collection</button>
                                     </form>
                                 {% endif %}
                             </td>
 
                             <td>
-                                {% if parcel.qr_code and parcel.collection_status != 'Collected' %}
+                                {% if parcel.qr_code and parcel['collection_status'] != 'Collected' %}
                                     <a class="qr-mobile-btn"
                                        href="{{ url_for('static', filename='qr_codes/' ~ parcel.qr_code) }}"
                                        target="_blank">
@@ -231,7 +231,7 @@
                 <p>{{ parcel.courier }}</p>
                 <p>Arrived: {{ parcel.arrival_date }}</p>
 
-                {% if parcel.qr_code and parcel.collection_status != 'Collected' %}
+                {% if parcel.qr_code and parcel['collection_status'] != 'Collected' %}
                     <a class="qr-mobile-btn"
                        href="{{ url_for('static', filename='qr_codes/' ~ parcel.qr_code) }}"
                        target="_blank">
