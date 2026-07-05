@@ -171,12 +171,12 @@ def init_db():
             student_username TEXT,
             tracking_number TEXT,
             courier TEXT,
-            arrival_date TEXT,
-            quantity SERIAL,
+            arrival_date DATE,
+            quantity INTEGER,
             payment_status TEXT DEFAULT 'Unpaid',
             collection_status TEXT DEFAULT 'Not Collected',
             qr_code TEXT,
-            collection_date TEXT
+            collection_date TIMESTAMP
         )
     ''')
 
@@ -188,14 +188,6 @@ def init_db():
         )
     ''')
 
-    # Reset admin account
-    c.execute("DELETE FROM staff WHERE username = %s", ("admin",))
-
-    c.execute("""
-              INSERT INTO STAFF (username, password)
-              VALUES (%s, %s)
-    """, ("admin", generate_password_hash("admin123")))
-
     c.execute('''
         CREATE TABLE IF NOT EXISTS notices (
             id SERIAL PRIMARY KEY,
@@ -203,8 +195,8 @@ def init_db():
             message TEXT NOT NULL,
             type TEXT NOT NULL,
             recipient TEXT DEFAULT 'all',
-            is_read SERIAL DEFAULT 0,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            is_read INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
 
@@ -216,45 +208,21 @@ def init_db():
             message TEXT,
             answer TEXT,
             status TEXT DEFAULT 'Pending',
-            is_read SERIAL DEFAULT 0,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            answered_at TEXT
+            is_read INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            answered_at TIMESTAMP
         )
     ''')
 
-    try:
-        c.execute("ALTER TABLE parcels ADD COLUMN collection_date TEXT")
-    except Exception:
-        pass
-
-    try:
-        c.execute("ALTER TABLE parcels ADD COLUMN qr_code TEXT")
-    except Exception:
-        pass
-
-    try:
-        c.execute("ALTER TABLE chat_messages ADD COLUMN answer TEXT")
-    except Exception:
-        pass
-
-    try:
-        c.execute("ALTER TABLE chat_messages ADD COLUMN status TEXT DEFAULT 'Pending'")
-    except Exception:
-        pass
-
-    try:
-        c.execute("ALTER TABLE chat_messages ADD COLUMN answered_at TEXT")
-    except Exception:
-        pass
+    c.execute("DELETE FROM staff WHERE username = %s", ("admin",))
 
     c.execute("""
-        INSERT OR IGNORE INTO staff (username, password)
+        INSERT INTO staff (username, password)
         VALUES (%s, %s)
     """, ("admin", generate_password_hash("admin123")))
 
     conn.commit()
     conn.close()
-
 
 @app.route('/')
 def home():
