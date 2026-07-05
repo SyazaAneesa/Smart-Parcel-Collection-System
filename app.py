@@ -113,14 +113,13 @@ Thank you.
 
 
 def send_parcel_email(student_email, student_username, tracking_number):
-    def job():
-        if not SENDER_EMAIL or not SENDER_PASSWORD:
-            print("Email not sent: SENDER_EMAIL or SENDER_PASSWORD missing")
-            return
+    if not SENDER_EMAIL or not SENDER_PASSWORD:
+        print("EMAIL ERROR: Missing SENDER_EMAIL or SENDER_PASSWORD")
+        return False
 
-        subject = "Parcel Arrival Notification"
+    subject = "Parcel Arrival Notification"
 
-        body = f"""
+    body = f"""
 Hello {student_username},
 
 Your parcel has arrived.
@@ -132,21 +131,24 @@ Please login to the Smart Parcel Collection System and make payment to generate 
 Thank you.
 """
 
-        msg = MIMEMultipart()
-        msg["From"] = SENDER_EMAIL
-        msg["To"] = student_email
-        msg["Subject"] = subject
-        msg.attach(MIMEText(body, "plain"))
+    msg = MIMEMultipart()
+    msg["From"] = SENDER_EMAIL
+    msg["To"] = student_email
+    msg["Subject"] = subject
+    msg.attach(MIMEText(body, "plain"))
 
-        try:
-            with smtplib.SMTP("smtp.gmail.com", 587, timeout=20) as server:
-                server.starttls()
-                server.login(SENDER_EMAIL, SENDER_PASSWORD)
-                server.send_message(msg)
-        except Exception as e:
-            print("Failed to send parcel email:", e)
+    try:
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=20) as server:
+            server.starttls()
+            server.login(SENDER_EMAIL, SENDER_PASSWORD)
+            server.send_message(msg)
 
-    threading.Thread(target=job, daemon=True).start()
+        print("EMAIL SENT SUCCESSFULLY TO:", student_email)
+        return True
+
+    except Exception as e:
+        print("EMAIL ERROR:", e)
+        return False
 
 
 def init_db():
@@ -502,7 +504,12 @@ def staff_checkin():
         conn.close()
 
         if student and student['email']:
-            send_parcel_email(student['email'], student_username, tracking_number)
+            email_sent = send_parcel_email(student['email'], student_username, tracking_number)
+
+            if email_sent:
+                flash("Parcel checked in and email notification sent!")
+            else:
+                flash("Parcel checked in, but email failed. Check Render logs.")
 
         flash("Parcel checked in and notification sent!")
         return redirect(url_for('staff_dashboard', username=session['staff_username']))

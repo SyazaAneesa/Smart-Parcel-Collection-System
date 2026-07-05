@@ -105,21 +105,33 @@
                         </span>
                     </td>
                     <td>
-                        <span class="status-pill {% if parcel.collection_status == 'Collected' %}paid{% elif parcel.payment_status == 'Paid' %}ready{% else %}neutral{% endif %}">
+                        <span class="status-pill 
                             {% if parcel.collection_status == 'Collected' %}
-                            Collected
+                                paid
+                            {% elif parcel.collection_status == 'Pending Confirmation' %}
+                                ready
                             {% elif parcel.payment_status == 'Paid' %}
-                            Ready
+                                ready
                             {% else %}
-                            Not Collected
+                                neutral
+                            {% endif %}
+                        ">
+                            {% if parcel.collection_status == 'Collected' %}
+                                Collected
+                            {% elif parcel.collection_status == 'Pending Confirmation' %}
+                                Pending Confirmation
+                            {% elif parcel.payment_status == 'Paid' %}
+                                Ready
+                            {% else %}
+                                Not Collected
                             {% endif %}
                         </span>
                     </td>
                     <td>
                         {% if parcel.overdue %}
-                        <span class="status-pill overdue">Overdue</span>
+                            <span class="status-pill overdue">Overdue</span>
                         {% else %}
-                        -
+                            -
                         {% endif %}
                     </td>
                 </tr>
@@ -139,28 +151,81 @@
 
             <div class="parcel-info">
                 <h3>{{ parcel.tracking_number }}</h3>
-                <p>{{ parcel.username }} • {{ parcel.courier }}</p>
+                <p>{{ parcel.student_username }} • {{ parcel.courier }}</p>
                 <p>Arrived: {{ parcel.arrival_date }}</p>
             </div>
 
             <div class="mobile-status-group">
-                <span class="status-pill {% if parcel.collection_status == 'Collected' %}paid{% elif parcel.payment_status == 'Paid' %}ready{% else %}neutral{% endif %}">
+                <span class="status-pill 
                     {% if parcel.collection_status == 'Collected' %}
-                    Collected
+                        paid
+                    {% elif parcel.collection_status == 'Pending Confirmation' %}
+                        ready
                     {% elif parcel.payment_status == 'Paid' %}
-                    Ready
+                        ready
                     {% else %}
-                    Pending
+                        neutral
+                    {% endif %}
+                ">
+                    {% if parcel.collection_status == 'Collected' %}
+                        Collected
+                    {% elif parcel.collection_status == 'Pending Confirmation' %}
+                        Pending Confirmation
+                    {% elif parcel.payment_status == 'Paid' %}
+                        Ready
+                    {% else %}
+                        Pending
                     {% endif %}
                 </span>
 
                 {% if parcel.overdue %}
-                <span class="status-pill overdue">Overdue</span>
+                    <span class="status-pill overdue">Overdue</span>
                 {% endif %}
             </div>
         </div>
         {% endfor %}
     </div>
+</section>
+
+<section class="glass-card parcel-section" id="student-questions">
+    <div class="card-head">
+        <h2><i class="fa-regular fa-comments"></i> Student Questions</h2>
+    </div>
+
+    {% for msg in chat_messages %}
+        <div class="notice-item">
+            <div class="notice-icon blue">
+                <i class="fa-regular fa-comment"></i>
+            </div>
+
+            <div style="width:100%;">
+                <strong>{{ msg.sender_username }}</strong>
+                <p><b>Question:</b> {{ msg.message }}</p>
+                <p><b>Status:</b> {{ msg.status }}</p>
+                <small>{{ msg.created_at }}</small>
+
+                {% if msg.answer %}
+                    <div class="alert alert-success mt-2">
+                        <b>Your Reply:</b> {{ msg.answer }}
+                    </div>
+                {% else %}
+                    <form method="POST" action="{{ url_for('staff_answer_chat', message_id=msg.id) }}" class="mt-2">
+                        <textarea name="answer"
+                                  rows="3"
+                                  placeholder="Type your reply..."
+                                  required
+                                  style="width:100%; padding:12px; border-radius:12px;"></textarea>
+
+                        <button type="submit" class="primary-btn small-btn mt-2">
+                            Reply
+                        </button>
+                    </form>
+                {% endif %}
+            </div>
+        </div>
+    {% else %}
+        <p class="muted">No student questions yet.</p>
+    {% endfor %}
 </section>
 
 <section class="glass-card notices-card full-width" id="announcement-section">
@@ -197,7 +262,9 @@
             <label>Message</label>
             <textarea name="message" rows="5" placeholder="Write announcement message..." required></textarea>
 
-            <button type="submit" class="primary-btn modal-submit">Post Announcement</button>
+            <button type="submit" class="primary-btn modal-submit">
+                Post Announcement
+            </button>
         </form>
     </div>
 </div>
@@ -213,6 +280,7 @@ function closeAnnouncementModal(){
 
 window.onclick = function(event){
     const modal = document.getElementById('announcementModal');
+
     if(event.target === modal){
         closeAnnouncementModal();
     }
