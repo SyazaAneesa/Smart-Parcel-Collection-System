@@ -284,7 +284,7 @@ def register():
             flash("Student registered! Please login.")
             return redirect(url_for('login'))
 
-        except psycopg2.IntegrityError:
+        except psycopg.Error:
             flash("Username or ID already exists!")
 
         finally:
