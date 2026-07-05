@@ -30,42 +30,45 @@
 </div>
 
 <script>
+let isScanning = false;
+
 function onScanSuccess(decodedText) {
+    if (isScanning) return;
+    isScanning = true;
+
     document.getElementById("qr_code").value = decodedText;
-    document.getElementById("qrForm").submit();
+
+    html5QrCode.stop().then(() => {
+        document.getElementById("qrForm").submit();
+    }).catch(err => {
+        console.log("Stop camera error:", err);
+        document.getElementById("qrForm").submit();
+    });
 }
 
 const html5QrCode = new Html5Qrcode("reader");
 
 Html5Qrcode.getCameras().then(devices => {
     if (devices && devices.length) {
-
-        let cameraId;
-
         const backCamera = devices.find(device =>
             device.label.toLowerCase().includes("back") ||
             device.label.toLowerCase().includes("rear") ||
             device.label.toLowerCase().includes("environment")
         );
 
-        if (backCamera) {
-            cameraId = backCamera.id;
-        } else {
-            cameraId = devices[0].id;
-        }
+        const cameraId = backCamera ? backCamera.id : devices[0].id;
 
         html5QrCode.start(
             cameraId,
             {
-                fps: 10,
-                qrbox: { width: 250, height: 250 }
+                fps: 5,
+                qrbox: { width: 220, height: 220 }
             },
             onScanSuccess
         ).catch(err => {
             console.log("Start camera error:", err);
             alert("Camera cannot start. Please allow camera permission.");
         });
-
     } else {
         alert("No camera found. Please use manual QR input.");
     }

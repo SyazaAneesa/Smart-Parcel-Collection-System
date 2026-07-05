@@ -504,6 +504,8 @@ def staff_checkin():
         conn.close()
 
         if student and student['email']:
+            print("Sending email to:", student['email'])
+
             email_sent = send_parcel_email(student['email'], student_username, tracking_number)
 
             if email_sent:
