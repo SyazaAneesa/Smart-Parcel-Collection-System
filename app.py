@@ -167,7 +167,7 @@ def init_db():
 
     c.execute('''
         CREATE TABLE IF NOT EXISTS parcels (
-            id SERIAL PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             student_username TEXT,
             tracking_number TEXT,
             courier TEXT,
@@ -182,7 +182,7 @@ def init_db():
 
     c.execute('''
         CREATE TABLE IF NOT EXISTS staff (
-            staff_id SERIAL PRIMARY KEY AUTOINCREMENT,
+            staff_id SERIAL PRIMARY KEY,
             username TEXT UNIQUE,
             password TEXT
         )
@@ -198,7 +198,7 @@ def init_db():
 
     c.execute('''
         CREATE TABLE IF NOT EXISTS notices (
-            id SERIAL PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             title TEXT NOT NULL,
             message TEXT NOT NULL,
             type TEXT NOT NULL,
@@ -210,7 +210,7 @@ def init_db():
 
     c.execute('''
         CREATE TABLE IF NOT EXISTS chat_messages (
-            id SERIAL PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             sender_username TEXT,
             receiver_username TEXT,
             message TEXT,
