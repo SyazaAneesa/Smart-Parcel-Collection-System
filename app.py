@@ -11,6 +11,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.image import MIMEImage
 import random
 from datetime import date, datetime, timedelta
+import threading
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "secretkey")
@@ -71,7 +72,7 @@ Thank you.
             msg.attach(qr_image)
 
     try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as server:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=8) as server:
             server.login(SENDER_EMAIL, SENDER_PASSWORD)
             server.send_message(msg)
 
@@ -107,7 +108,7 @@ Thank you.
     msg.attach(MIMEText(body, "plain"))
 
     try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as server:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=8) as server:
             server.login(SENDER_EMAIL, SENDER_PASSWORD)
             server.send_message(msg)
 
@@ -120,13 +121,14 @@ Thank you.
 
 
 def send_parcel_email(student_email, student_username, tracking_number):
-    if not SENDER_EMAIL or not SENDER_PASSWORD:
-        print("EMAIL ERROR: Missing SENDER_EMAIL or SENDER_PASSWORD")
-        return False
+    def job():
+        if not SENDER_EMAIL or not SENDER_PASSWORD:
+            print("EMAIL ERROR: Missing SENDER_EMAIL or SENDER_PASSWORD")
+            return False
 
-    subject = "Parcel Arrival Notification"
+        subject = "Parcel Arrival Notification"
 
-    body = f"""
+        body = f"""
 Hello {student_username},
 
 Your parcel has arrived.
@@ -138,23 +140,23 @@ Please login to the Smart Parcel Collection System and make payment to generate 
 Thank you.
 """
 
-    msg = MIMEMultipart()
-    msg["From"] = SENDER_EMAIL
-    msg["To"] = student_email
-    msg["Subject"] = subject
-    msg.attach(MIMEText(body, "plain"))
+        msg = MIMEMultipart()
+        msg["From"] = SENDER_EMAIL
+        msg["To"] = student_email
+        msg["Subject"] = subject
+        msg.attach(MIMEText(body, "plain"))
 
-    try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as server:
-            server.login(SENDER_EMAIL, SENDER_PASSWORD)
-            server.send_message(msg)
+        try:
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=8) as server:
+                server.login(SENDER_EMAIL, SENDER_PASSWORD)
+                server.send_message(msg)
 
-        print("EMAIL SENT SUCCESSFULLY TO:", student_email)
-        return True
+            print("EMAIL SENT SUCCESSFULLY TO:", student_email)
 
-    except Exception as e:
-        print("EMAIL ERROR:", e)
-        return False
+        except Exception as e:
+            print("EMAIL ERROR:", e)
+        
+    threading.Thread(target=job, daemon=True).start()
 
 
 def init_db():
@@ -512,12 +514,16 @@ def staff_checkin():
         if student and student['email']:
             print("Sending email to:", student['email'])
 
-            email_sent = send_parcel_email(student['email'], student_username, tracking_number)
+            email_sent = send_parcel_email(
+                student['email'],
+                student_username,
+                tracking_number
+            )
 
             if email_sent:
-                flash("Parcel checked in and email notification sent!")
+                flash("Email sent successfully to: " + student['email'])
             else:
-                flash("Parcel checked in, but email failed. Check Render logs.")
+                flash("Failed to send email to: " + student['email'])
 
         flash("Parcel checked in and notification sent!")
         return redirect(url_for('staff_dashboard', username=session['staff_username']))
