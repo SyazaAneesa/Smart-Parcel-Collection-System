@@ -11,7 +11,6 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.image import MIMEImage
 import random
 from datetime import date, datetime, timedelta
-import threading
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "secretkey")
@@ -140,14 +139,13 @@ Thank you.
             return False
 
 def send_parcel_email(student_email, student_username, tracking_number):
-    def job():
-        if not SENDER_EMAIL or not SENDER_PASSWORD:
-            print("Email not sent: SENDER_EMAIL or SENDER_PASSWORD missing")
-            return False
-        
-        subject = "Parcel Arrival Notification"
+    if not SENDER_EMAIL or not SENDER_PASSWORD:
+        print("Email not sent: SENDER_EMAIL or SENDER_PASSWORD missing")
+        return False
 
-        body = f"""
+    subject = "Parcel Arrival Notification"
+
+    body = f"""
 Hello {student_username},
 
 Your parcel has arrived.
@@ -159,35 +157,25 @@ Please login to the Smart Parcel Collection System and make payment to generate 
 Thank you.
 """
 
-        msg = MIMEMultipart()
-        msg["From"] = SENDER_EMAIL
-        msg["To"] = student_email
-        msg["Subject"] = subject
-        msg.attach(MIMEText(body, "plain"))
+    msg = MIMEMultipart()
+    msg["From"] = SENDER_EMAIL
+    msg["To"] = student_email
+    msg["Subject"] = subject
+    msg.attach(MIMEText(body, "plain"))
 
-        try:
-            try:
-                with smtplib.SMTP("smtp.gmail.com", 587, timeout=10) as server:
-                    server.starttls()
-                    server.login(SENDER_EMAIL, SENDER_PASSWORD)
-                    server.send_message(msg)
+    try:
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=10) as server:
+            server.starttls()
+            server.login(SENDER_EMAIL, SENDER_PASSWORD)
+            server.send_message(msg)
 
-            except OSError as first_error:
-                print("Gmail port 587 failed:", first_error)
+        print("EMAIL SENT SUCCESSFULLY TO:", student_email)
+        return True
 
-                with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10) as server:
-                    server.login(SENDER_EMAIL, SENDER_PASSWORD)
-                    server.send_message(msg)
-
-            print("EMAIL SENT SUCCESSFULLY TO:", student_email)
-            return True
-
-        except Exception as e:
-            print("EMAIL ERROR TYPE:", type(e).__name__)
-            print("EMAIL ERROR MESSAGE:", str(e))
-            return False
-        
-    threading.Thread(target=job, daemon=True).start()
+    except Exception as e:
+        print("EMAIL ERROR TYPE:", type(e).__name__)
+        print("EMAIL ERROR MESSAGE:", str(e))
+        return False
 
 
 def init_db():
