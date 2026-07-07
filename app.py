@@ -72,15 +72,25 @@ Thank you.
             msg.attach(qr_image)
 
     try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=8) as server:
-            server.login(SENDER_EMAIL, SENDER_PASSWORD)
-            server.send_message(msg)
+        try:
+            with smtplib.SMTP("smtp.gmail.com", 587, timeout=10) as server:
+                server.starttls()
+                server.login(SENDER_EMAIL, SENDER_PASSWORD)
+                server.send_message(msg)
 
-            print("QR EMAIL SENT SUCCESSFULLY TO:", student_email)
-            return True 
-        
+        except OSError as first_error:
+            print("Gmail port 587 failed:", first_error)
+
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10) as server:
+                server.login(SENDER_EMAIL, SENDER_PASSWORD)
+                server.send_message(msg)
+
+        print("EMAIL SENT SUCCESSFULLY TO:", student_email)
+        return True
+
     except Exception as e:
-        print("Failed to send QR email:", e)
+        print("EMAIL ERROR TYPE:", type(e).__name__)
+        print("EMAIL ERROR MESSAGE:", str(e))
         return False
 
 
@@ -108,24 +118,33 @@ Thank you.
     msg.attach(MIMEText(body, "plain"))
 
     try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=8) as server:
-            server.login(SENDER_EMAIL, SENDER_PASSWORD)
-            server.send_message(msg)
+        try:
+            with smtplib.SMTP("smtp.gmail.com", 587, timeout=10) as server:
+                    server.starttls()
+                    server.login(SENDER_EMAIL, SENDER_PASSWORD)
+                    server.send_message(msg)
 
-            print("RESET CODE EMAIL SENT SUCCESSFULLY TO:", student_email)
-            return True
-        
+        except OSError as first_error:
+                print("Gmail port 587 failed:", first_error)
+
+                with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10) as server:
+                    server.login(SENDER_EMAIL, SENDER_PASSWORD)
+                    server.send_message(msg)
+
+        print("EMAIL SENT SUCCESSFULLY TO:", student_email)
+        return True
+
     except Exception as e:
-        print("Failed to send reset email:", e)
-        return False
-
+            print("EMAIL ERROR TYPE:", type(e).__name__)
+            print("EMAIL ERROR MESSAGE:", str(e))
+            return False
 
 def send_parcel_email(student_email, student_username, tracking_number):
     def job():
         if not SENDER_EMAIL or not SENDER_PASSWORD:
-            print("EMAIL ERROR: Missing SENDER_EMAIL or SENDER_PASSWORD")
+            print("Email not sent: SENDER_EMAIL or SENDER_PASSWORD missing")
             return False
-
+        
         subject = "Parcel Arrival Notification"
 
         body = f"""
@@ -147,14 +166,26 @@ Thank you.
         msg.attach(MIMEText(body, "plain"))
 
         try:
-            with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=8) as server:
-                server.login(SENDER_EMAIL, SENDER_PASSWORD)
-                server.send_message(msg)
+            try:
+                with smtplib.SMTP("smtp.gmail.com", 587, timeout=10) as server:
+                    server.starttls()
+                    server.login(SENDER_EMAIL, SENDER_PASSWORD)
+                    server.send_message(msg)
+
+            except OSError as first_error:
+                print("Gmail port 587 failed:", first_error)
+
+                with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10) as server:
+                    server.login(SENDER_EMAIL, SENDER_PASSWORD)
+                    server.send_message(msg)
 
             print("EMAIL SENT SUCCESSFULLY TO:", student_email)
+            return True
 
         except Exception as e:
-            print("EMAIL ERROR:", e)
+            print("EMAIL ERROR TYPE:", type(e).__name__)
+            print("EMAIL ERROR MESSAGE:", str(e))
+            return False
         
     threading.Thread(target=job, daemon=True).start()
 
